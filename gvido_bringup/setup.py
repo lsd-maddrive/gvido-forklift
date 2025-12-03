@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+import os
+from glob import glob
 
 package_name = 'gvido_bringup'
 
@@ -10,6 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'gvido_bringup/scripts'), glob(os.path.join('gvido_bringup/scripts', '*.py'))),    
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,6 +27,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'gvido_can_bringup = gvido_bringup.scripts.gvido_can_bringup:main',
         ],
     },
 )

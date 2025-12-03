@@ -1,0 +1,60 @@
+/**:
+  ros__parameters:
+    camera:
+      i_usb_speed: SUPER
+      i_tf_base_frame: oak
+      i_tf_cam_pitch: "0.0"
+      i_tf_cam_pos_x: "0.0"
+      i_tf_cam_pos_y: "0.0"
+      i_tf_cam_pos_z: "0.0"
+      i_tf_cam_roll: "0.0"
+      i_tf_cam_yaw: "0.0"
+      i_tf_camera_model: ""
+      i_tf_camera_name: oak
+      i_tf_custom_urdf_location: ""
+      i_tf_custom_xacro_args: ""
+      i_tf_imu_from_descr: "false"
+      i_tf_parent_frame: oak-d-base-frame
+
+      i_pipeline_type: RGB          
+      i_enable_ir: false             
+      i_nn_type: none             
+      i_rs_compat: false            
+
+      i_max_q_size: 1                     
+      i_low_bandwidth: false              
+
+      # i_get_base_device_timestamp:  true
+      # i_update_ros_base_time_on_ros_msg: true
+
+      
+    pipeline_gen:
+      i_enable_diagnostics: true
+      i_enable_imu: true
+      i_enable_sync: false
+    imu:
+      i_acc_cov: 0.01
+      i_acc_freq: 400
+      i_batch_report_threshold: 5
+      i_enable_rotation: true
+      i_gyro_cov: 0.01
+      i_gyro_freq: 400
+      i_mag_cov: 0.01
+      i_max_batch_reports: 10
+      i_message_type: IMU
+      i_rot_cov: -1.0
+      i_sync_method: LINEAR_INTERPOLATE_ACCEL
+      # i_get_base_device_timestamp:  true
+      # i_update_ros_base_time_on_ros_msg: true
+      
+    rgb:
+      i_max_q_size: 30
+      i_low_bandwidth: false
+      i_publish_topic: true        
+      i_synced: false             
+      i_width: 1280                
+      i_height: 720                
+      i_fps: 30.0                    
+      i_publish_compressed: false
+      # i_get_base_device_timestamp:  true
+      # i_update_ros_base_time_on_ros_msg: true
