@@ -17,7 +17,6 @@ setup(
         (os.path.join('share', package_name, 'launch/drivers'), glob(os.path.join('launch/drivers', '*launch.[pxy][yma]*'))),
         (os.path.join('share', package_name, 'gvido_vision/scripts'), glob(os.path.join('gvido_vision/scripts', '*.py'))),
         (os.path.join('share', package_name, 'rviz'), glob(os.path.join('rviz', '*.rviz'))),
-
     ],
     install_requires=['setuptools'],
     zip_safe=True,
