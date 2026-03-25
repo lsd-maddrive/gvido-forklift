@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.yaml'))),
+        (os.path.join('share', package_name, 'config', 'calibration'), glob(os.path.join('config', 'calibration', '*.yaml'))),
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
         (os.path.join('share', package_name, 'launch/drivers'), glob(os.path.join('launch/drivers', '*launch.[pxy][yma]*'))),
         (os.path.join('share', package_name, 'gvido_vision/scripts'), glob(os.path.join('gvido_vision/scripts', '*.py'))),
@@ -31,6 +32,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'stereo_filter = gvido_vision.scripts.stereo_filter:main',
         ],
     },
 )
