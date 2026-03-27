@@ -22,7 +22,7 @@ def generate_launch_description():
             output='screen',
             parameters= [
                     
-                    {'initialize_type': 2},
+                    {'initialize_type': 1},
                     {'work_mode': 0},
                     {'use_system_timestamp': True},
                     {'range_min': 0.0},

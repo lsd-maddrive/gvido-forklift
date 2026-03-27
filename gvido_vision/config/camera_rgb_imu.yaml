@@ -16,7 +16,7 @@
       i_tf_imu_from_descr: "false"
       i_tf_parent_frame: oak-d-base-frame
 
-      i_pipeline_type: RGB          
+      i_pipeline_type: RGBD          
       i_enable_ir: false             
       i_nn_type: none             
       i_rs_compat: false            
