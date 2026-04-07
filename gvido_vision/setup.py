@@ -33,6 +33,8 @@ setup(
     entry_points={
         'console_scripts': [
             'stereo_filter = gvido_vision.scripts.stereo_filter:main',
+            'stereo_tag_maper = gvido_vision.scripts.stereo_tag_maper:main',
+            'apriltag_detector = gvido_vision.scripts.apriltag_detector:main',
         ],
     },
 )

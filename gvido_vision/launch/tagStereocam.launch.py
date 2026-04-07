@@ -12,18 +12,18 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    # Динамический путь к калибровочному файлу
+    # Динамический путь к калибровочному файлу (если есть)
     pkg_vision_share = get_package_share_directory('gvido_vision')
     default_calib_path = os.path.join(pkg_vision_share, 'config', 'calibration', 'lcalib.yaml')
     
-    # Проверяем, существует ли файл, если нет — используем пустую строку (будет использоваться дефолтная калибровка)
+    # Проверяем, существует ли файл, если нет — используем пустую строку
     calib_url = f'file://{default_calib_path}' if os.path.exists(default_calib_path) else ''
 
-    # ── Аргументы для левой камеры ─────────────────────────────────────────────
+    # ── Аргументы для левой камеры (USB) ───────────────────────────────────────
     camera_name_L_arg = DeclareLaunchArgument(
         'camera_name_L',
         default_value='camera_left',
-        description='Namespace / имя левой камеры (без ведущего слеша)'
+        description='Namespace / имя левой камеры'
     )
     video_device_L_arg = DeclareLaunchArgument(
         'video_device_L',
@@ -36,28 +36,23 @@ def generate_launch_description():
         description='URL калибровки левой камеры'
     )
 
-    # ── Аргументы для правой камеры ────────────────────────────────────────────
+    # ── Аргументы для правой камеры (OAK-D) ────────────────────────────────────
     camera_name_R_arg = DeclareLaunchArgument(
         'camera_name_R',
         default_value='camera_right',
-        description='Namespace / имя правой камеры (без ведущего слеша)'
+        description='Namespace / имя правой камеры'
     )
-    video_device_R_arg = DeclareLaunchArgument(
-        'video_device_R',
-        default_value='/dev/video2',
-        description='Путь к устройству правой камеры'
-    )
-    camera_info_url_R_arg = DeclareLaunchArgument(
-        'camera_info_url_R',
-        default_value=calib_url,
-        description='URL калибровки правой камеры'
+    oak_ns_arg = DeclareLaunchArgument(
+        'oak_ns',
+        default_value='oak',
+        description='Namespace для OAK-D камеры'
     )
 
     # ── Общие аргументы ────────────────────────────────────────────────────────
     pixel_format_arg = DeclareLaunchArgument(
         'pixel_format',
         default_value='mjpeg2rgb',
-        description='Формат: mjpeg2rgb (рекомендуется), yuyv, raw_mjpeg и т.д.'
+        description='Формат: mjpeg2rgb, yuyv, raw_mjpeg'
     )
     image_width_arg = DeclareLaunchArgument(
         'image_width',
@@ -77,7 +72,7 @@ def generate_launch_description():
     image_topic_arg = DeclareLaunchArgument(
         'image_topic',
         default_value='image_raw',
-        description='Топик изображения для AprilTag (желательно rectified)'
+        description='Топик изображения для AprilTag'
     )
     params_file_arg = DeclareLaunchArgument(
         'params_file',
@@ -100,7 +95,7 @@ def generate_launch_description():
         description='Использовать многопоточность в контейнере'
     )
 
-    # ── Узел левой камеры ──────────────────────────────────────────────────────
+    # ── Узел левой камеры (USB) ────────────────────────────────────────────────
     camera_node_L = Node(
         package='usb_cam',
         executable='usb_cam_node_exe',
@@ -126,28 +121,21 @@ def generate_launch_description():
         output='screen',
     )
 
-    # ── Узел правой камеры ─────────────────────────────────────────────────────
-    camera_node_R = Node(
-        package='usb_cam',
-        executable='usb_cam_node_exe',
-        name=LaunchConfiguration('camera_name_R'),
-        namespace=LaunchConfiguration('camera_name_R'),
+    # ── Узел правой камеры (OAK-D) ─────────────────────────────────────────────
+# ── Узел правой камеры (OAK-D) ─────────────────────────────────────────────
+    oak_camera_node = Node(
+        package='depthai_ros_driver',
+        executable='camera_node',
+        namespace=LaunchConfiguration('oak_ns'),
         parameters=[{
-            'video_device': LaunchConfiguration('video_device_R'),
-            'pixel_format': LaunchConfiguration('pixel_format'),
-            'image_width': LaunchConfiguration('image_width'),
-            'image_height': LaunchConfiguration('image_height'),
-            'framerate': LaunchConfiguration('framerate'),
-            'camera_name': LaunchConfiguration('camera_name_R'),
-            'camera_info_url': LaunchConfiguration('camera_info_url_R'),
-            'frame_id': 'camera_link_R',
-            'io_method': 'mmap',
-            'brightness': -1,
-            'contrast': -1,
-            'saturation': -1,
-            'sharpness': -1,
-            'gain': -1,
-            'auto_white_balance': True,
+            'camera.i_pipeline_type': 'RGB',
+            'camera.i_nn_type': 'none',
+            
+            'rgb.i_publish_topic': True,   
+            'rgb.i_resolution': '720p',
+            'rgb.i_fps': 30.0,
+            
+            'camera.i_base_frame': 'camera_link_R',
         }],
         output='screen',
     )
@@ -159,16 +147,18 @@ def generate_launch_description():
         name='static_tf_cameras',
         arguments=['0.4654', '0.0095', '0.0096', '0.0441', '0.0493', '-0.0213', 'camera_link_L', 'camera_link_R'],
         output='screen'
-        
     )
+    
     static_tf_baseToCam = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_tf_cameras',
         arguments=['0.0000', '0.2328', '1.2450', '-1.5917', '0.0201', '-1.5821', 'base_link', 'camera_link_L'],
+        output='screen'
     )
 
-    # ── AprilTag (multi) вместо двух отдельных ───────────────────────────────
+    # ── AprilTag (multi) ───────────────────────────────────────────────────────
+    # ИСПРАВЛЕНО: используем просто namespace + топик
     apriltag_multi = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -179,7 +169,12 @@ def generate_launch_description():
         ),
         launch_arguments={
             'camera_name_L': LaunchConfiguration('camera_name_L'),
-            'camera_name_R': LaunchConfiguration('camera_name_R'),
+            'camera_name_R': PathJoinSubstitution([
+                # топик oak/camera/right/image_raw
+                LaunchConfiguration('oak_ns'),
+                'camera',
+                'rgb'
+            ]),
             'image_topic': LaunchConfiguration('image_topic'),
             'params_file': LaunchConfiguration('params_file'),
             'use_sim_time': LaunchConfiguration('use_sim_time'),
@@ -188,6 +183,27 @@ def generate_launch_description():
             'container_name': 'tag_container_multi',
         }.items()
     )
+    print(PathJoinSubstitution([LaunchConfiguration('oak_ns'),'rgb']))
+
+    # apriltag_multi = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         PathJoinSubstitution([
+    #             FindPackageShare('apriltag_ros'),
+    #             'launch',
+    #             'multi_tag_detector.launch.py'
+    #         ])
+    #     ),
+    #     launch_arguments={
+    #         'camera_name_L': LaunchConfiguration('camera_name_L'),
+    #         'camera_name_R': 'oak/rgb',
+    #         'image_topic': LaunchConfiguration('image_topic'),
+    #         'params_file': LaunchConfiguration('params_file'),
+    #         'use_sim_time': LaunchConfiguration('use_sim_time'),
+    #         'intra_process': LaunchConfiguration('intra_process'),
+    #         'multithread': LaunchConfiguration('multithread'),
+    #         'container_name': 'tag_container_multi',
+    #     }.items()
+    # )
 
     # Фильтр для усреднения тегов
     tag_filter = Node(
@@ -198,16 +214,25 @@ def generate_launch_description():
         output='screen',
     )
 
-    return LaunchDescription([
-        # Аргументы для левой камеры
+    # Статическая трансформация для frame_id OAK-D
+    static_tf_oak = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_oak',
+        arguments=['0.0000', '0.2328', '1.2450', '-1.5917', '0.0201', '-1.5821', 
+                'base_link', 'camera_rgb_camera_optical_frame'],
+        output='screen',
+    )
+
+
+
+    return LaunchDescription ([
+        # Аргументы
         camera_name_L_arg,
         video_device_L_arg,
         camera_info_url_L_arg,
-        # Аргументы для правой камеры
         camera_name_R_arg,
-        video_device_R_arg,
-        camera_info_url_R_arg,
-        # Общие аргументы
+        oak_ns_arg,
         pixel_format_arg,
         image_width_arg,
         image_height_arg,
@@ -220,11 +245,12 @@ def generate_launch_description():
 
         # Узлы камер
         camera_node_L,
-        camera_node_R,
-
+        oak_camera_node,
+        
         # Статическая трансформация
         static_tf_cam,
         static_tf_baseToCam,
+        static_tf_oak,
 
         # AprilTag детекторы
         apriltag_multi,
