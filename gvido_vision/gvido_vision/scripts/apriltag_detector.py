@@ -1,186 +1,199 @@
 #!/usr/bin/env python3
 """
-AprilTag детектор для OAK-D камеры в реальном времени
-Использует pyapriltags библиотеку
+AprilTag детектор для ROS топика с OAK-D камеры
+Подписывается на /oak/rgb/image_raw и /oak/stereo/depth
+Публикует TF с реальной глубиной
 """
 
 import cv2
-import numpy as np
-import depthai as dai
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import TransformStamped
+from tf2_ros import TransformBroadcaster
 from pyapriltags import Detector
-import time
+import numpy as np
+import cv_bridge
 
-class OAKAprilTagDetector:
-    def __init__(self, families='tag36h11', tag_size=0.162, quad_decimate=1.0):
-        """
-        Инициализация детектора
+class AprilTagDetectorNode(Node):
+    def __init__(self):
+        super().__init__('apriltag_detector_node')
         
-        Args:
-            families: семейство тегов ('tag36h11', 'tag25h9', и т.д.)
-            tag_size: реальный размер тега в метрах
-            quad_decimate: уменьшение разрешения для ускорения
-        """
+        # Параметры
+        self.declare_parameter('image_topic', '/oak/rgb/image_raw')
+        self.declare_parameter('depth_topic', '/oak/stereo/depth')
+        self.declare_parameter('camera_frame', 'camera_link_R')
+        self.declare_parameter('tag_family', 'tag36h11')
+        self.declare_parameter('tag_size', 0.162)
+        
+        self.image_topic = self.get_parameter('image_topic').value
+        self.depth_topic = self.get_parameter('depth_topic').value
+        self.camera_frame = self.get_parameter('camera_frame').value
+        self.tag_family = self.get_parameter('tag_family').value
+        self.tag_size = self.get_parameter('tag_size').value
+        
+        # Параметры камеры (из lcalib.yaml)
+        self.camera_params = (634.37, 633.00, 280.28, 230.60)
+        
+        # TF бродкастер
+        self.tf_broadcaster = TransformBroadcaster(self)
+        
         # Создаем детектор AprilTag
         self.detector = Detector(
-            families=families,
+            families=self.tag_family,
             nthreads=4,
-            quad_decimate=quad_decimate,
-            quad_sigma=0.0,
-            refine_edges=1,
-            decode_sharpening=0.25,
-            debug=0
+            quad_decimate=1.0,
+            refine_edges=1
         )
         
-        self.tag_size = tag_size
-        self.families = families
+        # CV Bridge для конвертации ROS изображений
+        self.bridge = cv_bridge.CvBridge()
         
-        # Параметры камеры (если есть калибровка - загрузить)
-        self.camera_params = None  # [fx, fy, cx, cy]
+        # Храним последнюю глубину
+        self.last_depth = None
         
-        print(f"✅ Детектор AprilTag инициализирован")
-        print(f"   Семейство: {families}")
-        print(f"   Размер тега: {tag_size} м")
-    
-    def setup_oak_pipeline(self):
-        """Настройка пайплайна OAK-D камеры"""
-        pipeline = dai.Pipeline()
-        
-        # Узел RGB камеры
-        cam_rgb = pipeline.create(dai.node.ColorCamera)
-        cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-        cam_rgb.setInterleaved(False)
-        cam_rgb.setFps(30)
-        
-        # Узел для вывода данных
-        xout_rgb = pipeline.create(dai.node.XLinkOut)
-        xout_rgb.setStreamName("rgb")
-        cam_rgb.video.link(xout_rgb.input)
-        
-        print("✅ OAK-D пайплайн настроен")
-        return pipeline
-    
-    def detect_tags(self, frame):
-        """Детекция тегов на кадре"""
-        # Конвертируем в gray (AprilTag работает с черно-белым)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-        # Детекция тегов
-        tags = self.detector.detect(
-            gray,
-            #estimate_tag_pose=False,  # Пока без оценки позы
-            #camera_params=None,
-            #tag_size=self.tag_size
+        # Подписка на топик изображения
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
         )
         
-        return tags
+        self.sub = self.create_subscription(
+            Image, 
+            self.image_topic, 
+            self.image_callback, 
+            qos
+        )
+        
+        # Подписка на топик глубины
+        self.depth_sub = self.create_subscription(
+            Image,
+            self.depth_topic,
+            self.depth_callback,
+            qos
+        )
+        
+        self.get_logger().info(f"✅ AprilTag детектор инициализирован")
+        self.get_logger().info(f"   Подписан на: {self.image_topic}")
+        self.get_logger().info(f"   Depth topic: {self.depth_topic}")
+        self.get_logger().info(f"   Camera frame: {self.camera_frame}")
     
-    def draw_tags(self, frame, tags):
-        """Рисуем найденные теги на кадре"""
-        for tag in tags:
-            # Рисуем контур тега
-            corners = tag.corners.astype(int)
-            for i in range(4):
-                cv2.line(frame, tuple(corners[i]), tuple(corners[(i+1)%4]), (0, 255, 0), 2)
-            
-            # Рисуем центр тега
-            center = tuple(tag.center.astype(int))
-            cv2.circle(frame, center, 5, (0, 0, 255), -1)
-            
-            # Пишем ID тега
-            cv2.putText(frame, f"ID: {tag.tag_id}", 
-                       (center[0] - 20, center[1] - 10),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-            
-            # Пишем позицию (если есть)
-            if hasattr(tag, 'pose_t') and tag.pose_t is not None:
-                pos = tag.pose_t
-                cv2.putText(frame, f"X:{pos[0]:.2f} Y:{pos[1]:.2f} Z:{pos[2]:.2f}",
-                           (center[0] - 20, center[1] + 20),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
-        
-        return frame
-    
-    def run(self):
-        """Запуск детекции в реальном времени"""
-        # Настройка пайплайна
-        pipeline = self.setup_oak_pipeline()
-        
-        # Подключение к камере
-        print("🔌 Подключение к OAK-D камере...")
-        
+    def depth_callback(self, msg):
+        """Сохраняем последнюю глубину"""
         try:
-            with dai.Device(pipeline) as device:
-                print("✅ Камера подключена!")
-                
-                # Получаем очередь вывода
-                q_rgb = device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
-                
-                # Статистика FPS
-                fps = 0
-                frame_count = 0
-                start_time = time.time()
-                
-                print("\n🎥 Начало детекции. Нажмите 'q' для выхода\n")
-                
-                while True:
-                    # Получаем кадр
-                    in_frame = q_rgb.tryGet()
-                    
-                    if in_frame is not None:
-                        # Конвертируем в OpenCV формат
-                        frame = in_frame.getCvFrame()
-                        
-                        # Детекция тегов
-                        tags = self.detect_tags(frame)
-                        
-                        # Рисуем результаты
-                        frame = self.draw_tags(frame, tags)
-                        
-                        # Показываем FPS
-                        frame_count += 1
-                        if time.time() - start_time >= 1.0:
-                            fps = frame_count
-                            frame_count = 0
-                            start_time = time.time()
-                        
-                        cv2.putText(frame, f"FPS: {fps}", (10, 30),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                        cv2.putText(frame, f"Tags found: {len(tags)}", (10, 60),
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                        
-                        # Показываем кадр
-                        cv2.imshow("OAK-D AprilTag Detector", frame)
-                        
-                        # Вывод в консоль
-                        if len(tags) > 0:
-                            for tag in tags:
-                                print(f"🔍 Найден тег ID: {tag.tag_id}, Центр: {tag.center}")
-                    
-                    # Выход по 'q'
-                    if cv2.waitKey(1) == ord('q'):
-                        break
-        
+            self.last_depth = self.bridge.imgmsg_to_cv2(msg, '32FC1')
+            self.get_logger().info(f"✅ Глубина получена! shape={self.last_depth.shape}")
         except Exception as e:
-            print(f"❌ Ошибка: {e}")
+            self.get_logger().error(f"Ошибка глубины: {e}")
+    
+    def publish_tag_tf(self, tag, position_3d):
+        """Публикует трансформацию camera → tag в /tf"""
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = self.camera_frame
+        t.child_frame_id = f"tag_{tag.tag_id}"
         
-        finally:
-            cv2.destroyAllWindows()
-            print("\n👋 Программа завершена")
+        t.transform.translation.x = position_3d[0]
+        t.transform.translation.y = position_3d[1]
+        t.transform.translation.z = position_3d[2]
+        
+        t.transform.rotation.x = 0.0
+        t.transform.rotation.y = 0.0
+        t.transform.rotation.z = 0.0
+        t.transform.rotation.w = 1.0
+        
+        self.tf_broadcaster.sendTransform(t)
+    
+    def calculate_3d_position(self, center, depth_m):
+        """Вычисляет 3D позицию тега на основе глубины"""
+        if depth_m <= 0:
+            return None
+        u, v = center
+        fx, fy = self.camera_params[0], self.camera_params[1]
+        cx, cy = self.camera_params[2], self.camera_params[3]
+        X = (u - cx) * depth_m / fx
+        Y = (v - cy) * depth_m / fy
+        Z = depth_m
+        return (X, Y, Z)
+    
+    def image_callback(self, msg):
+        """Обработка изображения из топика"""
+        if self.last_depth is None:
+            self.get_logger().warn("Нет данных глубины, ждем...")
+            return
+        self.get_logger().info(f"📏 Глубина есть, shape={self.last_depth.shape}")
+        try:
+            # Конвертируем ROS изображение в OpenCV
+            frame = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+            # Детекция тегов
+            tags = self.detector.detect(gray)
+            
+            # Получаем размеры глубины
+            depth_h, depth_w = self.last_depth.shape
+            frame_h, frame_w = frame.shape[:2]
+            
+            for tag in tags:
+                center = tag.center
+                center_int = (int(center[0]), int(center[1]))
+                
+                # Находим соответствующий пиксель глубины
+                x_depth = int(center[0] * depth_w / frame_w)
+                y_depth = int(center[1] * depth_h / frame_h)
+                
+                if 0 <= x_depth < depth_w and 0 <= y_depth < depth_h:
+                    depth_m = self.last_depth[y_depth, x_depth] / 1000.0  # мм -> м
+                else:
+                    depth_m = 0
+                
+                if depth_m > 0:
+                    # Вычисляем 3D позицию
+                    pos_3d = self.calculate_3d_position(center, depth_m)
+                    if pos_3d:
+                        X, Y, Z = pos_3d
+                        self.publish_tag_tf(tag, pos_3d)
+                        self.get_logger().info(f"🔍 Тег {tag.tag_id}: X={X:.3f}, Y={Y:.3f}, Z={Z:.3f} м")
+                else:
+                    # Fallback: оценка по размеру тега
+                    corners = tag.corners
+                    width_px = np.linalg.norm(corners[0] - corners[1])
+                    if width_px > 0:
+                        distance = (self.tag_size * frame_w) / width_px
+                        pos_3d = [0, 0, distance]
+                        self.publish_tag_tf(tag, pos_3d)
+                        self.get_logger().info(f"🔍 Тег {tag.tag_id}: (приблизительно) Z={distance:.3f} м")
+            
+            # Визуализация (опционально, для отладки)
+            for tag in tags:
+                corners = tag.corners.astype(int)
+                for i in range(4):
+                    cv2.line(frame, tuple(corners[i]), tuple(corners[(i+1)%4]), (0, 255, 0), 2)
+                center = tuple(tag.center.astype(int))
+                cv2.circle(frame, center, 5, (0, 0, 255), -1)
+                cv2.putText(frame, f"ID: {tag.tag_id}", 
+                           (center[0] - 20, center[1] - 10),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+            
+            cv2.imshow("AprilTag Detection", frame)
+            cv2.waitKey(1)
+            
+        except Exception as e:
+            self.get_logger().error(f"Ошибка обработки: {e}")
 
-def main():
-    print("=" * 50)
-    print("AprilTag Detector для OAK-D камеры")
-    print("=" * 50)
-    
-    # Создаем детектор
-    detector = OAKAprilTagDetector(
-        families='tag36h11',  # Семейство тегов
-        tag_size=0.162,       # Размер 16.2 см
-        quad_decimate=1.0     # Без уменьшения разрешения
-    )
-    
-    # Запускаем
-    detector.run()
+def main(args=None):
+    rclpy.init(args=args)
+    node = AprilTagDetectorNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        cv2.destroyAllWindows()
+        node.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == "__main__":
     main()

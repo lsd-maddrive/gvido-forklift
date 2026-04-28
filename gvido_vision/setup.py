@@ -18,6 +18,7 @@ setup(
         (os.path.join('share', package_name, 'launch/drivers'), glob(os.path.join('launch/drivers', '*launch.[pxy][yma]*'))),
         (os.path.join('share', package_name, 'gvido_vision/scripts'), glob(os.path.join('gvido_vision/scripts', '*.py'))),
         (os.path.join('share', package_name, 'rviz'), glob(os.path.join('rviz', '*.rviz'))),
+        (os.path.join('share', package_name, 'scripts_python'), glob(os.path.join('scripts_python', '*.py'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -35,6 +36,8 @@ setup(
             'stereo_filter = gvido_vision.scripts.stereo_filter:main',
             'stereo_tag_maper = gvido_vision.scripts.stereo_tag_maper:main',
             'apriltag_detector = gvido_vision.scripts.apriltag_detector:main',
+            'depth_apriltag = gvido_vision.scripts.depth_apriltag:main',
+            'depth_apriltag_ros = gvido_vision.scripts.depth_apriltag_ros:main',
         ],
     },
 )

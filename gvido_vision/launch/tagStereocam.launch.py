@@ -128,14 +128,7 @@ def generate_launch_description():
         executable='camera_node',
         namespace=LaunchConfiguration('oak_ns'),
         parameters=[{
-            'camera.i_pipeline_type': 'RGB',
-            'camera.i_nn_type': 'none',
-            
-            'rgb.i_publish_topic': True,   
-            'rgb.i_resolution': '720p',
-            'rgb.i_fps': 30.0,
-            
-            'camera.i_base_frame': 'camera_link_R',
+            '/home/arya/ros2_ws/src/gvido-forklift/gvido_vision/config/oak_camera.yaml'
         }],
         output='screen',
     )

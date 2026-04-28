@@ -1,0 +1,6 @@
+tag_tf_stabilizer:
+  ros__parameters:
+    output_frame: "base_link"
+    max_pos: 0.3
+    max_ang: 0.3
+    keep: 0.5

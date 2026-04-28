@@ -1,0 +1,21 @@
+/oak:
+  ros__parameters:
+    camera:
+      i_pipeline_type: RGBD
+      i_nn_type: none
+      i_base_frame: camera_link_R
+    
+    rgb:
+      i_publish_topic: true
+      i_resolution: 720p
+      i_fps: 30.0
+    
+    stereo:
+      i_publish_topic: true
+      i_align_depth: true
+      i_subpixel: true
+      i_left_rect_publish_topic: false
+      i_right_rect_publish_topic: false
+    
+    depth:
+      i_publish_topic: true
