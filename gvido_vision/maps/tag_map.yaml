@@ -1,0 +1,45 @@
+tags:
+  tag_10:
+    child_frame_id: tag_10
+    frame_id: camera_link_R
+    rotation:
+      w: 1.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    stats:
+      ang_jitter_max_deg: 0.0
+      ang_jitter_max_rad: 0.0
+      ang_jitter_mean_deg: 0.0
+      ang_jitter_mean_rad: 0.0
+      pos_jitter_max_m: 0.07812285630156887
+      pos_jitter_mean_m: 0.05208190420104621
+      samples_per_window: 3
+      score: 0.09114333235183064
+      windows_seen: 1
+    translation:
+      x: 0.6318289576485762
+      y: 0.18395946139906036
+      z: 2.347111092673408
+  tag_3:
+    child_frame_id: tag_3
+    frame_id: camera_link_R
+    rotation:
+      w: 1.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    stats:
+      ang_jitter_max_deg: 0.0
+      ang_jitter_max_rad: 0.0
+      ang_jitter_mean_deg: 0.0
+      ang_jitter_mean_rad: 0.0
+      pos_jitter_max_m: 0.39498820026468207
+      pos_jitter_mean_m: 0.26332546684312164
+      samples_per_window: 3
+      score: 0.46081956697546267
+      windows_seen: 1
+    translation:
+      x: 0.21080379203597518
+      y: 0.09816264982175564
+      z: 2.246444450484382

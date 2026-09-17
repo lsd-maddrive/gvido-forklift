@@ -1,0 +1,26 @@
+rtabmap:
+  ros__parameters:
+    # Стерео режим (вместо RGB-D)
+    subscribe_stereo: true
+    
+    # Твои топики
+    left_image_topic: /oak/rgb/image_rect
+    right_image_topic: /oak/stereo/image_raw
+    left_camera_info_topic: /oak/rgb/camera_info
+    right_camera_info_topic: /oak/stereo/camera_info
+    
+    # TF фреймы
+    frame_id: oak_rgb_camera_optical_frame
+    odom_frame_id: odom
+    map_frame_id: map
+    publish_tf_map: true
+    
+    # Визуальная одометрия и синхронизация
+    visual_odometry: true
+    approx_sync: true
+    approx_sync_max_interval: 0.05
+    topic_queue_size: 30
+    sync_queue_size: 30
+    
+    # Твои теги (для коррекции)
+    tag_topic: /apriltag/detections

@@ -1,0 +1,25 @@
+rtabmap:
+  ros__parameters:
+    # Режим RGB-D
+    subscribe_rgbd: true
+    
+    # Твои топики OAK-D
+    rgb_topic: /oak/rgb/image_rect
+    depth_topic: /oak/stereo/image_raw
+    camera_info_topic: /oak/rgb/camera_info
+    
+    # TF фреймы
+    frame_id: oak_rgb_camera_optical_frame
+    odom_frame_id: odom
+    map_frame_id: map
+    publish_tf_map: true
+    
+    # Визуальная одометрия и синхронизация
+    visual_odometry: true
+    approx_sync: true
+    approx_sync_max_interval: 0.05
+    topic_queue_size: 30
+    sync_queue_size: 30
+    
+    # Твои теги
+    tag_topic: /apriltag/detections

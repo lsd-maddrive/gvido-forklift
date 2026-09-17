@@ -34,10 +34,12 @@ setup(
     entry_points={
         'console_scripts': [
             'stereo_filter = gvido_vision.scripts.stereo_filter:main',
-            'stereo_tag_maper = gvido_vision.scripts.stereo_tag_maper:main',
+            'stereo_tag_mapper = gvido_vision.scripts.stereo_tag_mapper:main',
             'apriltag_detector = gvido_vision.scripts.apriltag_detector:main',
             'depth_apriltag = gvido_vision.scripts.depth_apriltag:main',
             'depth_apriltag_ros = gvido_vision.scripts.depth_apriltag_ros:main',
+            'tag_localizer = gvido_vision.scripts.tag_localizer:main',
+            'tf_to_tag_detections = gvido_vision.scripts.tf_to_tag_detections:main',
         ],
     },
 )

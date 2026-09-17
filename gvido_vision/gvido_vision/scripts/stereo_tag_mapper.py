@@ -95,11 +95,11 @@ class TagMapBuilder(Node):
 
         # ---- параметры ----
         self.declare_parameter('yaml_filename', 'tag_map.yaml')
-        self.declare_parameter('samples_per_window', 10)
-        self.declare_parameter('min_windows_before_save', 5)
+        self.declare_parameter('samples_per_window', 3)
+        self.declare_parameter('min_windows_before_save', 1)
         self.declare_parameter('max_buffer_size', 100)
-        self.declare_parameter('stb_suffix', '_stb')
-        self.declare_parameter('save_only_frame', 'map')
+        self.declare_parameter('stb_suffix', '')
+        self.declare_parameter('save_only_frame', '')
 
         self.yaml_filename = self.get_parameter('yaml_filename').value
         self.samples_per_window = int(self.get_parameter('samples_per_window').value)
@@ -167,16 +167,18 @@ class TagMapBuilder(Node):
     # ========================================================
 
     def tf_callback(self, msg: TFMessage):
+        self.get_logger().info(f"Получено сообщение TF с {len(msg.transforms)} трансформациями")
         for tr in msg.transforms:
             child = tr.child_frame_id
-            if not child.endswith(self.stb_suffix):
-                continue
+            self.get_logger().info(f"DEBUG: child_frame_id = '{child}'")
+            # if not child.endswith(self.stb_suffix):
+            #     continue
 
-            if self.save_only_frame and tr.header.frame_id != self.save_only_frame:
-                continue
+            # if self.save_only_frame and tr.header.frame_id != self.save_only_frame:
+            #     continue
 
-            tag_id = child[:-len(self.stb_suffix)]
-
+            tag_id = child  # должно быть 'tag_3'
+            self.get_logger().info(f"DEBUG: tag_id = '{tag_id}'")
             # если уже есть в yaml — ничего не делаем
             if tag_id in self.saved_tags:
                 continue
@@ -199,6 +201,10 @@ class TagMapBuilder(Node):
             )
 
             self.buffers[tag_id].append(sample)
+            # Принудительное сохранение после 10 измерений (временное решение)
+            if len(self.buffers[tag_id]) >= 10:
+                self.get_logger().info(f"ПРИНУДИТЕЛЬНОЕ СОХРАНЕНИЕ: {tag_id}")
+                self.save_best_candidate(tag_id)
             self.try_update_candidate(tag_id)
 
     # ========================================================

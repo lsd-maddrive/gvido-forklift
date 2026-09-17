@@ -1,6 +1,5 @@
 tag_tf_stabilizer:
   ros__parameters:
-    output_frame: "base_link"
-    max_pos: 0.3
-    max_ang: 0.3
-    keep: 0.5
+    window_size: 10
+    output_frame: "camera_link_R"
+    stb_suffix: "_stb"
